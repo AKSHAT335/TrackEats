@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect } from "react";
 interface ILocation {
   latitude: number;
@@ -9,7 +7,7 @@ interface Iprops {
   userLocation: ILocation;
   deliveryBoyLocation: ILocation;
 }
-import L from "leaflet";
+import L, { LatLngExpression } from "leaflet";
 import {
   MapContainer,
   Marker,
@@ -28,7 +26,7 @@ function Recenter({ positions }: { positions: [number, number] }) {
         animate: true,
       });
     }
-  }, [positions, map]);
+  }, [positions[0], positions[1]]);
   return null;
 }
 
@@ -49,9 +47,10 @@ function LiveMap({ userLocation, deliveryBoyLocation }: Iprops) {
           [deliveryBoyLocation.latitude, deliveryBoyLocation.longitude],
         ]
       : [];
-  const center = deliveryBoyLocation
-    ? [deliveryBoyLocation.latitude, deliveryBoyLocation.longitude]
-    : [userLocation.latitude, userLocation.longitude];
+  const center =
+    deliveryBoyLocation.latitude !== 0
+      ? [deliveryBoyLocation.latitude, deliveryBoyLocation.longitude]
+      : [userLocation.latitude, userLocation.longitude];
 
   return (
     <div className="w-full h-125 rounded-xl overflow-hidden shadow relative z-2">
@@ -75,6 +74,7 @@ function LiveMap({ userLocation, deliveryBoyLocation }: Iprops) {
 
         {deliveryBoyLocation && (
           <Marker
+            key={`${deliveryBoyLocation.latitude}-${deliveryBoyLocation.longitude}`}
             position={[
               deliveryBoyLocation.latitude,
               deliveryBoyLocation.longitude,

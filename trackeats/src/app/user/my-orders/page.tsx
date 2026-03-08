@@ -8,6 +8,7 @@ import React, { useEffect, useState } from "react";
 import UserOrderCard from "@/app/components/UserOrderCard";
 
 import { IUser } from "@/models/user.model";
+import { getSocket } from "@/lib/socket";
 interface IOrder {
   _id?: string;
   user: string;
@@ -56,6 +57,21 @@ function MyOrder() {
       }
     };
     getMyOrders();
+  }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    socket.on("order-assigned", ({ orderId, assignedDeliveryBoy }) => {
+      setOrders((prev) =>
+        prev?.map((o) =>
+          o._id == orderId ? { ...o, assignedDeliveryBoy } : o,
+        ),
+      );
+    });
+
+    return () => {
+      socket.off("order-assigned");
+    };
   }, []);
 
   if (loading) {

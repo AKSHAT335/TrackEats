@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import connectDb from "@/lib/db";
 import Order from "@/models/order.model";
+import emitEventHandler from "@/lib/emitEventHandler";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,13 +23,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await Order.findOneAndUpdate(
+    const order = await Order.findOneAndUpdate(
       { razorpayOrderId: razorpay_order_id },
       {
         isPaid: true,
         razorpayPaymentId: razorpay_payment_id,
       },
+      { new: true },
     );
+
+    if (order?._id) {
+      await emitEventHandler("order-payment-update", {
+        orderId: order._id,
+        isPaid: true,
+        razorpayPaymentId: razorpay_payment_id,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

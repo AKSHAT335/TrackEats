@@ -3,6 +3,7 @@ import User from "@/models/user.model";
 import Order from "@/models/order.model";
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
+import emitEventHandler from "@/lib/emitEventHandler";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -48,6 +49,9 @@ export async function POST(req: NextRequest) {
     // Save Razorpay order id
     newOrder.razorpayOrderId = razorpayOrder.id;
     await newOrder.save();
+
+    // Notify admin dashboards immediately for online orders too.
+    await emitEventHandler("new-order", newOrder);
 
     return NextResponse.json({
       razorpayOrderId: razorpayOrder.id,

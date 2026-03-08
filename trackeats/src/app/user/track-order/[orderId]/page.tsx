@@ -47,9 +47,10 @@ interface ILocation {
   latitude: number;
   longitude: number;
 }
-function TrackOrder() {
+function TrackOrder({ params }: { params: { orderId: string } }) {
   const { userData } = useSelector((state: RootState) => state.user);
   const { orderId } = useParams();
+  const currentOrderId = Array.isArray(orderId) ? orderId[0] : orderId;
   const [order, setOrder] = useState<IOrder>();
   const router = useRouter();
   const [newMessage, setNewMessage] = useState("");
@@ -66,10 +67,25 @@ function TrackOrder() {
     longitude: 0,
   });
 
+  const buildMessageFingerprint = (msg: IMessage) => {
+    return `${msg._id?.toString() ?? ""}|${msg.senderId?.toString() ?? ""}|${msg.time ?? ""}|${msg.text ?? ""}`;
+  };
+
+  const dedupeMessages = (list: IMessage[]) => {
+    const seen = new Set<string>();
+    return list.filter((msg) => {
+      const fingerprint = buildMessageFingerprint(msg);
+      if (seen.has(fingerprint)) return false;
+      seen.add(fingerprint);
+      return true;
+    });
+  };
+
   useEffect(() => {
+    if (!currentOrderId) return;
     const getOrder = async () => {
       try {
-        const result = await axios.get(`/api/user/get-order/${orderId}`);
+        const result = await axios.get(`/api/user/get-order/${currentOrderId}`);
         setOrder(result.data);
         setUserLocation({
           latitude: result.data.address.latitude,
@@ -84,46 +100,59 @@ function TrackOrder() {
       }
     };
     getOrder();
-  }, [orderId]);
+  }, [userData?._id, currentOrderId]);
 
   useEffect((): any => {
-    const assignedDeliveryBoyId = order?.assignedDeliveryBoy?._id?.toString();
-    if (!assignedDeliveryBoyId) return;
-
     const socket = getSocket();
-    const handleDeliveryBoyLocationUpdate = (data: any) => {
-      if (data?.userId?.toString() !== assignedDeliveryBoyId) return;
+    socket.on("update-deliveryBoy-location", (data) => {
+      if (data.userId !== order?.assignedDeliveryBoy?._id) return;
 
       setDeliveryBoyLocation({
-        latitude: data.location.coordinates?.[1] ?? data.location.latitude,
-        longitude: data.location.coordinates?.[0] ?? data.location.longitude,
+        latitude: data.location.coordinates[1],
+        longitude: data.location.coordinates[0],
       });
-    };
-
-    socket.on("update-deliveryBoy-location", handleDeliveryBoyLocationUpdate);
-    return () =>
-      socket.off("update-deliveryBoy-location", handleDeliveryBoyLocationUpdate);
-  }, [order?.assignedDeliveryBoy?._id]);
+    });
+    return () => socket.off("update-deliveryBoy-location");
+  }, [order]);
 
   useEffect(() => {
+    if (!currentOrderId) return;
     const socket = getSocket();
-    socket.emit("join-room", orderId);
+    socket.emit("join-room", currentOrderId);
     socket.on("send-message", (message) => {
-      if (message.roomId === orderId) {
-        setMessages((prev) => [...prev!, message]);
+      if (message.roomId === currentOrderId) {
+        setMessages((prev) => dedupeMessages([...(prev ?? []), message]));
       }
     });
 
     return () => {
       socket.off("send-message");
     };
-  }, []);
+  }, [currentOrderId]);
+
+  useEffect(() => {
+    if (!currentOrderId) return;
+    const socket = getSocket();
+    const handleStatusUpdate = (data: {
+      orderId: string;
+      status: IOrder["status"];
+    }) => {
+      if (data.orderId?.toString() !== currentOrderId?.toString()) return;
+      setOrder((prev) => (prev ? { ...prev, status: data.status } : prev));
+    };
+
+    socket.on("order-status-update", handleStatusUpdate);
+    return () => {
+      socket.off("order-status-update", handleStatusUpdate);
+    };
+  }, [currentOrderId]);
 
   const sendMsg = () => {
+    if (!currentOrderId || !newMessage.trim()) return;
     const socket = getSocket();
 
     const message = {
-      roomId: orderId,
+      roomId: currentOrderId,
       text: newMessage,
       senderId: userData?._id,
       time: new Date().toLocaleTimeString([], {
@@ -136,18 +165,19 @@ function TrackOrder() {
     setNewMessage("");
   };
   useEffect(() => {
+    if (!currentOrderId) return;
     const getAllMessages = async () => {
       try {
         const result = await axios.post("/api/chat/messages", {
-          roomId: orderId,
+          roomId: currentOrderId,
         });
-        setMessages(result.data);
+        setMessages(dedupeMessages(result.data ?? []));
       } catch (error) {
         console.log(error);
       }
     };
     getAllMessages();
-  }, []);
+  }, [currentOrderId]);
 
   useEffect(() => {
     chatBoxRef.current?.scrollTo({
@@ -172,6 +202,13 @@ function TrackOrder() {
       console.log(error);
       setLoading(false);
     }
+  };
+
+  const getMessageKey = (msg: IMessage, index: number) => {
+    const base =
+      msg._id?.toString() ||
+      `${msg.senderId?.toString() ?? "unknown"}-${msg.time ?? "no-time"}-${msg.text ?? ""}`;
+    return `${base}-${index}`;
   };
 
   return (
@@ -225,7 +262,7 @@ function TrackOrder() {
             <div className="flex gap-2 flex-wrap mb-3">
               {suggestions.map((s, i) => (
                 <motion.div
-                  key={s}
+                  key={`${s}-${i}`}
                   whileTap={{ scale: 0.92 }}
                   className="px-3 py-1 text-xs bg-green-50 border border-green-200 cursor-pointer text-green-700 rounded-full"
                   onClick={() => setNewMessage(s)}
@@ -242,7 +279,7 @@ function TrackOrder() {
               <AnimatePresence>
                 {messages?.map((msg, index) => (
                   <motion.div
-                    key={msg._id?.toString()}
+                    key={getMessageKey(msg, index)}
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}

@@ -41,7 +41,7 @@ interface IOrder {
   updatedAt?: Date;
 }
 function ManageOrders() {
-  const [orders, setOrders] = useState<IOrder[]>();
+  const [orders, setOrders] = useState<IOrder[]>([]);
   const router = useRouter();
   useEffect(() => {
     const getOrders = async () => {
@@ -58,7 +58,7 @@ function ManageOrders() {
   useEffect(() => {
     const socket = getSocket();
     socket?.on("new-order", (newOrder) => {
-      setOrders((prev) => [newOrder, ...prev!]);
+      setOrders((prev) => [newOrder, ...(prev ?? [])]);
     });
     socket.on("order-assigned", ({ orderId, assignedDeliveryBoy }) => {
       setOrders((prev) =>
@@ -67,9 +67,21 @@ function ManageOrders() {
         ),
       );
     });
+    socket.on("order-status-update", ({ orderId, status }) => {
+      setOrders((prev) =>
+        prev?.map((o) => (o._id == orderId ? { ...o, status } : o)),
+      );
+    });
+    socket.on("order-payment-update", ({ orderId, isPaid }) => {
+      setOrders((prev) =>
+        prev?.map((o) => (o._id == orderId ? { ...o, isPaid } : o)),
+      );
+    });
     return () => {
       socket.off("new-order");
       socket.off("order-assigned");
+      socket.off("order-status-update");
+      socket.off("order-payment-update");
     };
   }, []);
 
@@ -89,7 +101,10 @@ function ManageOrders() {
       <div className="max-w-6xl mx-auto px-4 pt-24 pb-16 space-y-8">
         <div className="space-y-6">
           {orders?.map((order, index) => (
-            <AdminOrderCard key={index} order={order} />
+            <AdminOrderCard
+              key={order._id?.toString() ?? `order-${index}`}
+              order={order}
+            />
           ))}
         </div>
       </div>

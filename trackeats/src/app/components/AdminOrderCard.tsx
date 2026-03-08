@@ -16,6 +16,7 @@ import Image from "next/image";
 import axios from "axios";
 
 import { IUser } from "@/models/user.model";
+import { getSocket } from "@/lib/socket";
 interface IOrder {
   _id?: string;
   user: string;
@@ -50,7 +51,7 @@ interface IOrder {
 }
 function AdminOrderCard({ order }: { order: IOrder }) {
   const [expanded, setExpanded] = useState(false);
-  const [status, setStatus] = useState<string>("pending");
+  const [status, setStatus] = useState<string>(order.status);
   const statusOptions = ["pending", "out of delivery"];
 
   const updateStatus = async (orderId: string, status: string) => {
@@ -68,7 +69,17 @@ function AdminOrderCard({ order }: { order: IOrder }) {
 
   useEffect(() => {
     setStatus(order.status);
-  }, [order]);
+  }, [order.status]);
+  useEffect((): any => {
+    const socket = getSocket();
+    socket.on("order-status-update", (data) => {
+      if (data.orderId.toString() == order?._id!.toString()) {
+        setStatus(data.status);
+      }
+    });
+    return () => socket.off("order-status-update");
+  }, []);
+
   return (
     <motion.div
       key={order._id?.toString()}

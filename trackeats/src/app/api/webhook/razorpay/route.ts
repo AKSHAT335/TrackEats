@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import connectDb from "@/lib/db";
 import Order from "@/models/order.model";
+import emitEventHandler from "@/lib/emitEventHandler";
 
 export const runtime = "nodejs"; // important for crypto
 
@@ -28,13 +29,22 @@ export async function POST(req: NextRequest) {
     if (event.event === "payment.captured") {
       const payment = event.payload.payment.entity;
 
-      await Order.findOneAndUpdate(
+      const order = await Order.findOneAndUpdate(
         { razorpayOrderId: payment.order_id },
         {
           isPaid: true,
           razorpayPaymentId: payment.id,
         },
+        { new: true },
       );
+
+      if (order?._id) {
+        await emitEventHandler("order-payment-update", {
+          orderId: order._id,
+          isPaid: true,
+          razorpayPaymentId: payment.id,
+        });
+      }
     }
 
     return NextResponse.json({ success: true });
