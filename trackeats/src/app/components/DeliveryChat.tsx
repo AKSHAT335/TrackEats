@@ -89,35 +89,19 @@ function DeliveryChat({ orderId, deliveryBoyId }: props) {
   }, []);
 
   const getSuggestion = async () => {
-    const fallback = [
-      "I am 5 minutes away.",
-      "Please share a nearby landmark.",
-      "I have reached your location.",
-    ];
-
     setLoading(true);
     try {
-      const selfId = deliveryBoyId?.toString();
       const lastMessage = messages
-        ?.filter((m) => m.senderId?.toString() !== selfId)
-        ?.filter((m) => m.text?.trim())
+        ?.filter((m) => m.senderId.toString() !== deliveryBoyId)
         ?.at(-1);
-
-      if (!lastMessage?.text?.trim()) {
-        setSuggestions(fallback);
-        setLoading(false);
-        return;
-      }
-
       const result = await axios.post("/api/chat/ai-suggestions", {
         message: lastMessage?.text,
         role: "delivery_boy",
       });
-      setSuggestions(Array.isArray(result.data) ? result.data : fallback);
+      setSuggestions(result.data);
       setLoading(false);
     } catch (error) {
       console.log(error);
-      setSuggestions(fallback);
       setLoading(false);
     }
   };
