@@ -22,11 +22,13 @@ async function Home(props: {
 
   const session = await auth();
 
-  if (!session?.user?.id) {
+  if (!session?.user?.id && !session?.user?.email) {
     redirect("/login");
   }
 
-  const user = await User.findById(session.user.id).lean();
+  const user = session?.user?.id
+    ? await User.findById(session.user.id).lean()
+    : await User.findOne({ email: session?.user?.email }).lean();
 
   if (!user) {
     redirect("/login");

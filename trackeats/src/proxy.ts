@@ -10,8 +10,6 @@ export async function proxy(req: NextRequest) {
   }
 
   const token = await getToken({ req, secret: process.env.AUTH_SECRET });
-  console.log("token", token);
-  console.log("url", req.url);
   if (!token) {
     const loginurl = new URL("/login", req.url);
     loginurl.searchParams.set("callbackUrl", req.url);
