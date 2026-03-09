@@ -121,7 +121,7 @@ const Login = () => {
 
         <div
           className="w-full flex items-center justify-center gap-3 border border-gray-300 hover:bg-gray-50 py-3 rounded-xl text-gray-700 font-medium transition-all duration-200"
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google")}
         >
           <Image src={googleImage} width={20} height={20} alt="google" />
           Continue with Google
