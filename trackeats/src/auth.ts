@@ -39,11 +39,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      return baseUrl;
+    },
+
     async signIn({ user, account }) {
-      console.log(user);
-      if (account?.provider == "google") {
+      if (account?.provider === "google") {
         await connectDb();
         let dbUser = await User.findOne({ email: user.email });
+
         if (!dbUser) {
           dbUser = await User.create({
             name: user.name,
@@ -55,8 +59,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         user.id = dbUser._id.toString();
         user.role = dbUser.role;
       }
+
       return true;
     },
+
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
@@ -64,17 +70,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.name = user.name;
         token.role = user.role;
       }
-      if (trigger === "update") {
+
+      if (trigger === "update" && typeof session?.role === "string") {
         token.role = session.role;
       }
+
       return token;
     },
+
     session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
-        session.user.email = token.email as string;
-        session.user.name = token.name as string;
-        session.user.role = token.role as string;
+        if (typeof token.id === "string") {
+          session.user.id = token.id;
+        }
+        if (typeof token.email === "string") {
+          session.user.email = token.email;
+        }
+        if (typeof token.name === "string") {
+          session.user.name = token.name;
+        }
+        if (typeof token.role === "string") {
+          session.user.role = token.role;
+          session.role = token.role;
+        }
       }
       return session;
     },
