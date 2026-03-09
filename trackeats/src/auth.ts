@@ -49,19 +49,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        await connectDb();
-        let dbUser = await User.findOne({ email: user.email });
+        try {
+          await connectDb();
+          let dbUser = await User.findOne({ email: user.email });
 
-        if (!dbUser) {
-          dbUser = await User.create({
-            name: user.name,
-            email: user.email,
-            image: user.image,
-          });
+          if (!dbUser) {
+            dbUser = await User.create({
+              name: user.name,
+              email: user.email,
+              image: user.image,
+            });
+          }
+
+          user.id = dbUser._id.toString();
+          user.role = dbUser.role;
+        } catch (error) {
+          console.error("Google signIn callback failed:", error);
+          return false;
         }
-
-        user.id = dbUser._id.toString();
-        user.role = dbUser.role;
       }
 
       return true;
@@ -73,6 +78,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.email = user.email;
         token.name = user.name;
         token.role = user.role;
+      }
+
+      // OAuth providers can sometimes miss custom fields in initial token payload.
+      // If id/role are missing but email exists, hydrate from DB.
+      if ((!token.id || !token.role) && typeof token.email === "string") {
+        try {
+          await connectDb();
+          const dbUser = await User.findOne({ email: token.email }).select(
+            "_id role",
+          );
+          if (dbUser) {
+            token.id = dbUser._id.toString();
+            token.role = dbUser.role;
+          }
+        } catch (error) {
+          console.error("JWT hydration failed:", error);
+        }
       }
 
       if (trigger === "update" && typeof session?.role === "string") {
