@@ -1,0 +1,164 @@
+"use client";
+import AdminOrderCard from "@/app/components/AdminOrderCard";
+import { getSocket } from "@/lib/socket";
+
+import { IUser } from "@/models/user.model";
+import axios from "axios";
+import { ArrowLeft } from "lucide-react";
+
+import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+interface IOrder {
+  _id?: string;
+  user: string;
+  items: [
+    {
+      grocery: string;
+      name: string;
+      price: string;
+      unit: string;
+      image: string;
+      quantity: number;
+    },
+  ];
+  isPaid: boolean;
+  totalAmount: number;
+  paymentMethod: "cod" | "online";
+  address: {
+    fullName: string;
+    mobile: string;
+    city: string;
+    state: string;
+    pincode: string;
+    fullAddress: string;
+    latitude: number;
+    longitude: number;
+  };
+  assignment?: string;
+  assignedDeliveryBoy?: IUser;
+  status: "pending" | "out of delivery" | "delivered";
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+function ManageOrders() {
+  const [orders, setOrders] = useState<IOrder[]>([]);
+  const router = useRouter();
+  useEffect(() => {
+    const getOrders = async () => {
+      try {
+        const result = await axios.get("/api/admin/get-orders");
+        setOrders(result.data);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+    getOrders();
+  }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleNewOrder = (newOrder: IOrder) => {
+      setOrders((prev) => [newOrder, ...(prev ?? [])]);
+    };
+
+    const handleOrderAssigned = ({
+      orderId,
+      assignedDeliveryBoy,
+    }: {
+      orderId: string;
+      assignedDeliveryBoy: IUser;
+    }) => {
+      setOrders((prev) =>
+        prev?.map((o) =>
+          o._id?.toString() === orderId?.toString()
+            ? { ...o, assignedDeliveryBoy }
+            : o,
+        ),
+      );
+    };
+
+    const handleOrderStatusUpdate = ({
+      orderId,
+      status,
+    }: {
+      orderId: string;
+      status: IOrder["status"];
+    }) => {
+      setOrders((prev) =>
+        prev?.map((o) =>
+          o._id?.toString() === orderId?.toString() ? { ...o, status } : o,
+        ),
+      );
+    };
+
+    const handleOrderPaymentUpdate = ({
+      orderId,
+      isPaid,
+    }: {
+      orderId: string;
+      isPaid: boolean;
+    }) => {
+      setOrders((prev) =>
+        prev?.map((o) =>
+          o._id?.toString() === orderId?.toString() ? { ...o, isPaid } : o,
+        ),
+      );
+    };
+
+    const setupListeners = () => {
+      socket.on("new-order", handleNewOrder);
+      socket.on("order-assigned", handleOrderAssigned);
+      socket.on("order-status-update", handleOrderStatusUpdate);
+      socket.on("order-payment-update", handleOrderPaymentUpdate);
+    };
+
+    // Setup listeners immediately if connected, or wait for connection
+    if (socket.connected) {
+      setupListeners();
+    } else {
+      socket.once("connect", setupListeners);
+    }
+
+    // Also re-setup on reconnection
+    socket.on("reconnect", setupListeners);
+
+    return () => {
+      socket.off("new-order", handleNewOrder);
+      socket.off("order-assigned", handleOrderAssigned);
+      socket.off("order-status-update", handleOrderStatusUpdate);
+      socket.off("order-payment-update", handleOrderPaymentUpdate);
+      socket.off("connect", setupListeners);
+      socket.off("reconnect", setupListeners);
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-50 w-full">
+      <div className="fixed top-0 left-0 w-full backdrop-blur-lg bg-white/70 shadow-sm border-b z-50">
+        <div className="max-w-3xl mx-auto flex items-center gap-4 px-4 py-3">
+          <button
+            className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 active:scale-95 transition"
+            onClick={() => router.push("/")}
+          >
+            <ArrowLeft size={24} className="text-green-700" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-800">Manage Orders</h1>
+        </div>
+      </div>
+      <div className="max-w-6xl mx-auto px-4 pt-24 pb-16 space-y-8">
+        <div className="space-y-6">
+          {orders?.map((order, index) => (
+            <AdminOrderCard
+              key={order._id?.toString() ?? `order-${index}`}
+              order={order}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default ManageOrders;
