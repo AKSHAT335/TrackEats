@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
 import { getToken } from "next-auth/jwt";
 
+const AUTH_SECRET = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -10,7 +12,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  const token = await getToken({ req, secret: AUTH_SECRET });
   console.log("token", token);
   console.log("url", req.url);
   if (!token) {

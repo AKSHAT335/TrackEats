@@ -5,6 +5,12 @@ import User from "./models/user.model";
 import bcrypt from "bcryptjs";
 import Google from "next-auth/providers/google";
 
+const AUTH_SECRET = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+const GOOGLE_CLIENT_ID =
+  process.env.GOOGLE_CLIENT_ID ?? process.env.Google_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET =
+  process.env.GOOGLE_CLIENT_SECRET ?? process.env.Google_CLIENT_SECRET;
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
@@ -34,8 +40,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
     Google({
-      clientId: process.env.Google_CLIENT_ID,
-      clientSecret: process.env.Google_CLIENT_SECRET,
+      clientId: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
     }),
   ],
   callbacks: {
@@ -86,5 +92,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
   },
-  secret: process.env.AUTH_SECRET,
+  secret: AUTH_SECRET,
 });
