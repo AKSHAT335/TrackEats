@@ -34,9 +34,7 @@ const Login = () => {
       await signIn("credentials", {
         email,
         password,
-        callbackUrl: "/",
       });
-      router.push("/");
       setLoading(false);
     } catch (error) {
       console.log(error);
