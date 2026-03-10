@@ -5,8 +5,6 @@ import User from "./models/user.model";
 import bcrypt from "bcryptjs";
 import Google from "next-auth/providers/google";
 
-const AUTH_SECRET = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
@@ -36,12 +34,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: process.env.Google_CLIENT_ID,
+      clientSecret: process.env.Google_CLIENT_SECRET,
     }),
   ],
   callbacks: {
-    // token ke ander user ka data dalta hai
     async signIn({ user, account }) {
       console.log(user);
       if (account?.provider == "google") {
@@ -60,44 +57,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return true;
     },
-    jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
-        ((token.id = user.id),
-          (token.name = user.name),
-          (token.email = user.email),
-          (token.role = user.role));
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.role = user.role;
       }
-      if (trigger == "update") {
+      if (trigger === "update") {
         token.role = session.role;
       }
-
       return token;
     },
     session({ session, token }) {
       if (session.user) {
-        ((session.user.id = token.id as string),
-          (session.user.name = token.name as string),
-          (session.user.email = token.email as string));
+        session.user.id = token.id as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
         session.user.role = token.role as string;
       }
       return session;
-    },
-    async redirect({ url, baseUrl }) {
-      // Keep redirects on the same origin and allow relative callback URLs.
-      if (url.startsWith("/")) {
-        return `${baseUrl}${url}`;
-      }
-
-      try {
-        const targetUrl = new URL(url);
-        if (targetUrl.origin === baseUrl) {
-          return url;
-        }
-      } catch {
-        return baseUrl;
-      }
-
-      return baseUrl;
     },
   },
   pages: {
@@ -107,6 +86,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
   },
-  secret: AUTH_SECRET,
-  trustHost: true,
+  secret: process.env.AUTH_SECRET,
 });
