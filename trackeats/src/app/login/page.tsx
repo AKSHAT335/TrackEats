@@ -25,11 +25,15 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await signIn("credentials", {
+      const res = await signIn("credentials", {
         email,
         password,
+        redirect: false,
       });
-      router.push("/");
+
+      if (res?.ok) {
+        router.push("/");
+      }
       setLoading(false);
     } catch (error) {
       console.log(error);
