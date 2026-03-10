@@ -5,6 +5,8 @@ import User from "./models/user.model";
 import bcrypt from "bcryptjs";
 import Google from "next-auth/providers/google";
 
+const AUTH_SECRET = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
@@ -80,6 +82,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      // Keep redirects on the same origin and allow relative callback URLs.
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+
+      try {
+        const targetUrl = new URL(url);
+        if (targetUrl.origin === baseUrl) {
+          return url;
+        }
+      } catch {
+        return baseUrl;
+      }
+
+      return baseUrl;
+    },
   },
   pages: {
     signIn: "/login",
@@ -88,6 +107,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
   },
-  secret: process.env.AUTH_SECRET,
+  secret: AUTH_SECRET,
   trustHost: true,
 });

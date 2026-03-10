@@ -16,10 +16,8 @@ import React, { useState } from "react";
 import Image from "next/image";
 import googleImage from "@/assets/google.png";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { log } from "console";
-import { set } from "mongoose";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -27,14 +25,26 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await signIn("credentials", {
+      const result = await signIn("credentials", {
         email,
         password,
+        callbackUrl,
+        redirect: false,
       });
+
+      if (result?.error) {
+        setLoading(false);
+        return;
+      }
+
+      router.push(result?.url || callbackUrl);
       setLoading(false);
     } catch (error) {
       console.log(error);
@@ -120,7 +130,7 @@ const Login = () => {
 
         <div
           className="w-full flex items-center justify-center gap-3 border border-gray-300 hover:bg-gray-50 py-3 rounded-xl text-gray-700 font-medium transition-all duration-200 cursor-pointer"
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google", { callbackUrl })}
         >
           <Image src={googleImage} width={20} height={20} alt="google" />
           Continue with Google
