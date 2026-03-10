@@ -39,86 +39,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
-    },
-
+    // token ke ander user ka data dalta hai
     async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        try {
-          await connectDb();
-          let dbUser = await User.findOne({ email: user.email });
-
-          if (!dbUser) {
-            dbUser = await User.create({
-              name: user.name,
-              email: user.email,
-              image: user.image,
-            });
-          }
-
-          user.id = dbUser._id.toString();
-          user.role = dbUser.role;
-        } catch (error) {
-          console.error("Google signIn callback failed:", error);
-          return false;
+      console.log(user);
+      if (account?.provider == "google") {
+        await connectDb();
+        let dbUser = await User.findOne({ email: user.email });
+        if (!dbUser) {
+          dbUser = await User.create({
+            name: user.name,
+            email: user.email,
+            image: user.image,
+          });
         }
-      }
 
+        user.id = dbUser._id.toString();
+        user.role = dbUser.role;
+      }
       return true;
     },
-
-    async jwt({ token, user, trigger, session }) {
+    jwt({ token, user, trigger, session }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.name = user.name;
-        token.role = user.role;
+        ((token.id = user.id),
+          (token.name = user.name),
+          (token.email = user.email),
+          (token.role = user.role));
       }
-
-      // OAuth providers can sometimes miss custom fields in initial token payload.
-      // If id/role are missing but email exists, hydrate from DB.
-      if ((!token.id || !token.role) && typeof token.email === "string") {
-        try {
-          await connectDb();
-          const dbUser = await User.findOne({ email: token.email }).select(
-            "_id role",
-          );
-          if (dbUser) {
-            token.id = dbUser._id.toString();
-            token.role = dbUser.role;
-          }
-        } catch (error) {
-          console.error("JWT hydration failed:", error);
-        }
-      }
-
-      if (trigger === "update" && typeof session?.role === "string") {
+      if (trigger == "update") {
         token.role = session.role;
       }
 
       return token;
     },
-
     session({ session, token }) {
       if (session.user) {
-        if (typeof token.id === "string") {
-          session.user.id = token.id;
-        }
-        if (typeof token.email === "string") {
-          session.user.email = token.email;
-        }
-        if (typeof token.name === "string") {
-          session.user.name = token.name;
-        }
-        if (typeof token.role === "string") {
-          session.user.role = token.role;
-          session.role = token.role;
-        }
+        ((session.user.id = token.id as string),
+          (session.user.name = token.name as string),
+          (session.user.email = token.email as string));
+        session.user.role = token.role as string;
       }
       return session;
     },
