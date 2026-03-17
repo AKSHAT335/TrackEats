@@ -35,11 +35,12 @@ The system is divided into two main components:
 - Browse grocery items by category
 - Add items to cart and checkout
 - Order placement with real-time confirmation
-- Real-time order tracking with live delivery map
+- Real-time order tracking with **live interactive map** showing delivery location
 - Order history and status management
 - Instant messaging with delivery personnel
 - Multiple payment options (Razorpay integration)
 - OTP verification for secure deliveries
+- **Drag-and-drop delivery address selection** on map during checkout
 
 ### For Admins
 - Comprehensive dashboard with order analytics
@@ -53,7 +54,7 @@ The system is divided into two main components:
 - Mobile-friendly role selection interface
 - View available delivery assignments
 - Accept or decline orders
-- Real-time location tracking
+- Real-time GPS location tracking with live map updates
 - Live communication with customers
 - OTP-based delivery verification
 - Order history and earnings tracking
@@ -259,6 +260,183 @@ cd socketServer
 node index.js
 ```
 
+## 🗺️ Maps & Location Tracking
+
+TrackEats uses **Leaflet** with **OpenStreetMap** for all map functionality, providing real-time delivery tracking and interactive location selection.
+
+### Map Technologies
+
+#### Libraries Used
+- **Leaflet** (v1.9.4): Lightweight, open-source JavaScript library for interactive maps
+- **React-Leaflet** (v5.0.0): React components for Leaflet
+- **Leaflet GeoSearch** (v4.2.2): Geocoding and address search functionality
+- **OpenStreetMap**: Free, open-source map tiles (no API key required)
+
+#### Key Benefits
+- **No API key required** - Uses OpenStreetMap (completely free)
+- Lightweight and fast performance
+- Works offline with cached tiles
+- Cross-platform compatibility
+- Open-source and fully customizable
+
+### Map Components
+
+#### 1. **LiveMap Component** (`src/app/components/LiveMap.tsx`)
+Real-time delivery tracking map shown to customers during order delivery.
+
+**Features:**
+- Shows customer location with location icon
+- Shows delivery personnel location with delivery icon
+- Draws line connecting both locations (route visualization)
+- Auto-centers map to track delivery person
+- Updates in real-time via Socket.io events
+- Smooth animations for location changes
+
+**Usage Example:**
+```tsx
+<LiveMap 
+  userLocation={{ latitude: 28.6139, longitude: 77.2090 }}
+  deliveryBoyLocation={{ latitude: 28.6150, longitude: 77.2100 }}
+/>
+```
+
+**How It Works:**
+1. Component receives location coordinates from Socket.io updates
+2. Custom Leaflet icons display user and delivery icons
+3. Polyline draws the route between two points
+4. Recenter component auto-pans map to delivery location
+5. Updates occur in real-time as delivery person moves
+
+#### 2. **CheckoutMap Component** (`src/app/components/CheckoutMap.tsx`)
+Interactive map for customers to select delivery address during checkout.
+
+**Features:**
+- Drag-and-drop marker to select delivery location
+- One-click address selection
+- Zoom in/out functionality
+- Map animates to new position when dragged
+- Returns exact coordinates (latitude, longitude)
+
+**Usage Example:**
+```tsx
+const [position, setPosition] = useState<[number, number]>([28.6139, 77.2090]);
+
+<CheckoutMap 
+  position={position} 
+  setPosition={setPosition}
+/>
+
+// position is updated to [latitude, longitude] when marker is dragged
+```
+
+**How It Works:**
+1. Displays map centered on initial position
+2. Marker is draggable
+3. When dragged, `dragend` event fires
+4. New coordinates extracted from marker location
+5. Parent component updates with new delivery address
+
+### Location Updates via Socket.io
+
+The maps are powered by real-time location updates through Socket.io:
+
+**Customer Location Sent:**
+```javascript
+socket.emit('userLocation', {
+  userId: 'customer123',
+  latitude: 28.6139,
+  longitude: 77.2090,
+  timestamp: Date.now()
+});
+```
+
+**Delivery Person Location Sent:**
+```javascript
+socket.emit('deliveryLocation', {
+  deliveryId: 'delivery456',
+  latitude: 28.6150,
+  longitude: 77.2100,
+  timestamp: Date.now()
+});
+```
+
+**Real-time Update Received:**
+```javascript
+socket.on('deliveryUpdate', (location) => {
+  setDeliveryBoyLocation({
+    latitude: location.latitude,
+    longitude: location.longitude
+  });
+});
+```
+
+### Tile Layers
+
+**OpenStreetMap (Free, No API Key)**
+```jsx
+<TileLayer
+  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+/>
+```
+
+### Custom Icons
+
+**Delivery Person Icon:**
+```javascript
+const deliveryBoyIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/128/9561/9561688.png",
+  iconSize: [45, 45],
+});
+```
+
+**Customer Location Icon:**
+```javascript
+const userIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/128/4821/4821951.png",
+  iconSize: [45, 45],
+});
+```
+
+**Delivery Address Marker:**
+```javascript
+const markerIcon = new L.Icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/128/684/684908.png",
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+});
+```
+
+### Geolocation API
+
+Get user's current location:
+```javascript
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition((position) => {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    setUserLocation({ latitude: lat, longitude: lng });
+  });
+}
+```
+
+### Troubleshooting Maps
+
+**Issue: Map not displaying**
+- Check browser console for CSS errors
+- Verify `leaflet/dist/leaflet.css` is imported
+- Ensure map container has width and height
+
+**Issue: Location updates not reflecting**
+- Verify Socket.io connection is active
+- Check event names match client and server
+- Confirm coordinates are [latitude, longitude]
+
+**Issue: Markers not showing**
+- Verify icon URLs are accessible
+- Check valid coordinate format
+- Ensure icon sizes match design
+
 ## 📡 API Endpoints
 
 ### Authentication
@@ -436,5 +614,3 @@ For support, email support@trackeats.com or open an issue on GitHub.
 ---
 
 **Happy coding! 🎉**
-
-Last updated: March 2025
